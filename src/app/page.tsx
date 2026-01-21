@@ -2,12 +2,9 @@
 import ServiceOfferTasks from '@/components/service-offer-tasks';
 import ServiceRequestTasks from '@/components/service-request-tasks';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
 import { useState, useEffect, useCallback } from 'react';
 
 export default function ProfessionalProcurementUI() {
-  const params = useSearchParams()
-  const created = params.get('created')
   const [role, setRole] = useState('projectManager');
   const [tasks, setTasks] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
