@@ -28,9 +28,9 @@ export default function ProfessionalProcurementUI() {
   // -----------------------------
   // API Configuration
   // -----------------------------
-  const API_BASE = "/api/flowable";
+  
   const AUTH = "Basic " + btoa("rest-admin:test");
-  const ASSIGNEE_USER = "rest-admin"; // same user as your Basic Auth
+  
 
 
   const loadTasks = useCallback(async () => {
@@ -69,26 +69,26 @@ export default function ProfessionalProcurementUI() {
 
   useEffect(() => { loadTasks(); }, [loadTasks]);
 
-  useEffect(() => { getUser(); }, []);
+  // useEffect(() => { getUser(); }, []);
 
-  const getUser = async () => {
-    try {
-      const url = `${API_BASE}/identity/users`;
-      const res = await fetch(url, { headers: { Authorization: AUTH } });
+  // const getUser = async () => {
+  //   try {
+  //     const url = `${process.env.NEXT_PUBLIC_FLOWABLE_URL}/flowable-rest/service/identity/users`;
+  //     const res = await fetch(url, { headers: { Authorization: AUTH } });
 
-      if (!res.ok) {
-        const text = await res.text().catch(() => "");
-        throw new Error(`Users load failed: HTTP ${res.status} ${res.statusText} ${text}`);
-      }
+  //     if (!res.ok) {
+  //       const text = await res.text().catch(() => "");
+  //       throw new Error(`Users load failed: HTTP ${res.status} ${res.statusText} ${text}`);
+  //     }
 
-      const data = await res.json();
-      console.log("users data ================ ", data);
-      const users = data.data || [];
-      console.log('users ---------------', users);
-    } catch (e) {
-      console.error("getUser failed", e);
-    }
-  };
+  //     const data = await res.json();
+  //     console.log("users data ================ ", data);
+  //     const users = data.data || [];
+  //     console.log('users ---------------', users);
+  //   } catch (e) {
+  //     console.error("getUser failed", e);
+  //   }
+  // };
 
   const handleAction = async (
     taskId: string,
