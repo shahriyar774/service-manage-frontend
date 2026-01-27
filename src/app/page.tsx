@@ -1,8 +1,19 @@
 'use client';
+
 import ServiceOfferTasks from '@/components/service-offer-tasks';
 import ServiceRequestTasks from '@/components/service-request-tasks';
+import ProjectManagerOverview from '@/components/project-manager/ProjectManagerOverview';
+import OrderModal from '@/components/project-manager/OrderModal';
+import ProcurementSection from '@/components/role-sections/ProcurementSection';
+import SuppliersSection from '@/components/role-sections/SuppliersSection';
+import ResourcePlannersSection from '@/components/role-sections/ResourcePlannersSection';
+
 import Link from 'next/link';
 import { useState, useEffect, useCallback } from 'react';
+import ExtensionModal from '@/components/project-manager/extensionModal';
+import { ServiceOrder } from '@/types/data-type';
+import SubstitutionModal from '@/components/project-manager/substitutionModal';
+import SubstitutionResponseModal from '@/components/project-manager/substitutionResponseModal';
 
 export default function ProfessionalProcurementUI() {
   const [role, setRole] = useState('projectManager');
@@ -28,23 +39,19 @@ export default function ProfessionalProcurementUI() {
   // -----------------------------
   // API Configuration
   // -----------------------------
-  
-  const AUTH = "Basic " + btoa("rest-admin:test");
-  
-
+  const AUTH = 'Basic ' + btoa('rest-admin:test');
 
   const loadTasks = useCallback(async () => {
     setLoading(true);
     try {
       let url;
-      if (role === 'procurement')
-      {
+      if (role === 'procurement') {
         url = `${process.env.NEXT_PUBLIC_API_BASE_URL}/requests/service-requests/tasks?group=${role}`;
       } else {
         url = `${process.env.NEXT_PUBLIC_API_BASE_URL}/requests/service-offers/tasks?group=${role}`;
       }
 
-      const response = await fetch(url)
+      const response = await fetch(url);
 
       if (!response.ok) {
         throw new Error(`Failed to load task`);
@@ -58,7 +65,7 @@ export default function ProfessionalProcurementUI() {
         unclaimed: data?.count
       });
     } catch (e) {
-      console.error("Connection failed", e);
+      console.error('Connection failed', e);
       setTasks([]);
       setStats({ total: 0, unclaimed: 0 });
       showToast('error', 'Connection failed. Check backend/proxy is running.');
@@ -67,34 +74,11 @@ export default function ProfessionalProcurementUI() {
     }
   }, [role]);
 
-  useEffect(() => { loadTasks(); }, [loadTasks]);
+  useEffect(() => {
+    loadTasks();
+  }, [loadTasks]);
 
-  // useEffect(() => { getUser(); }, []);
-
-  // const getUser = async () => {
-  //   try {
-  //     const url = `${process.env.NEXT_PUBLIC_FLOWABLE_URL}/flowable-rest/service/identity/users`;
-  //     const res = await fetch(url, { headers: { Authorization: AUTH } });
-
-  //     if (!res.ok) {
-  //       const text = await res.text().catch(() => "");
-  //       throw new Error(`Users load failed: HTTP ${res.status} ${res.statusText} ${text}`);
-  //     }
-
-  //     const data = await res.json();
-  //     console.log("users data ================ ", data);
-  //     const users = data.data || [];
-  //     console.log('users ---------------', users);
-  //   } catch (e) {
-  //     console.error("getUser failed", e);
-  //   }
-  // };
-
-  const handleAction = async (
-    taskId: string,
-    action: string,
-    decision: string
-  ) => {
+  const handleAction = async (taskId: string, action: string, decision: string) => {
     if (action === 'complete' && !decision) {
       console.error("handleAction: decision is required for 'complete'");
       showToast('error', 'Decision missing: cannot complete task.');
@@ -102,25 +86,22 @@ export default function ProfessionalProcurementUI() {
     }
 
     try {
-      const finalDecision = role === 'projectManager' ? 'final_approval' : decision
+      const finalDecision = role === 'projectManager' ? 'final_approval' : decision;
 
       let url;
       if (role === 'procurement') {
-        url = `${process.env.NEXT_PUBLIC_API_BASE_URL}/requests/service-requests/tasks/${taskId}/complete/`
+        url = `${process.env.NEXT_PUBLIC_API_BASE_URL}/requests/service-requests/tasks/${taskId}/complete/`;
       } else {
-        url = `${process.env.NEXT_PUBLIC_API_BASE_URL}/requests/service-offers/tasks/${taskId}/complete/`
+        url = `${process.env.NEXT_PUBLIC_API_BASE_URL}/requests/service-offers/tasks/${taskId}/complete/`;
       }
 
-      const res = await fetch(
-        url,
-        {
-          method: 'POST',
-          headers: { Authorization: AUTH, "Content-Type": "application/json" },
-          body: JSON.stringify({
-            decision: finalDecision
-          })
-        }
-      );
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { Authorization: AUTH, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          decision: finalDecision
+        })
+      });
 
       if (!res.ok) {
         throw new Error(`Task action failed`);
@@ -134,17 +115,76 @@ export default function ProfessionalProcurementUI() {
 
       loadTasks();
     } catch (e) {
-      console.error("handleAction failed", e);
+      console.error('handleAction failed', e);
       showToast('error', 'Action failed. Check Flowable response.');
     }
   };
+
+  // ============================================================
+  // UI-ONLY ADDITION (No change to your existing logic above):
+  // "All Orders" section with 2 cards: Extension + Substitution
+  // + Modal form, approve/reject buttons
+  // ============================================================
+
+  const [showExtensionModal, setShowExtensionModal] = useState(false);
+  const [showSubstitutionModal, setShowSubstitutionModal] = useState(false);
+  const [showSubResponseModal, setShowSubResponseModal] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState<ServiceOrder | null>(null);
+
+  const openOrderModal = (order: ServiceOrder, type: string) => {
+    setSelectedOrder(order);
+    if (type === 'extension'){
+      setShowExtensionModal(true);
+    } else if (type === 'substitution-response') {
+      setShowSubResponseModal(true)
+    } else {
+      setShowSubstitutionModal(true)
+    }
+  };
+
+  // const closeOrderModal = () => {
+  //   setOrderModalOpen(false);
+  //   setSelectedOrder(null);
+  // };
+
+  // This is a placeholder submit to keep UI complete.
+  // You can connect it later to your backend endpoint for service order change requests.
+  // const submitOrderForm = async () => {
+  //   if (!orderForm.reason.trim()) {
+  //     showToast('error', 'Please provide a reason.');
+  //     return;
+  //   }
+
+  //   if (orderType === 'extension') {
+  //     if (!orderForm.newEndDate || !orderForm.additionalManDays || !orderForm.newContractValueEUR) {
+  //       showToast('error', 'Please fill all extension fields.');
+  //       return;
+  //     }
+  //   } else {
+  //     if (!orderForm.replacementSpecialist.trim() || !orderForm.substitutionStartDate) {
+  //       showToast('error', 'Please fill all substitution fields.');
+  //       return;
+  //     }
+  //   }
+
+  //   // Keep it UI-only (no backend dependency)
+  //   showToast('success', `${orderType === 'extension' ? 'Extension' : 'Substitution'} form saved (UI only).`);
+  //   closeOrderModal();
+  // };
+
+  const EmptyOrdersState = () => (
+    <div className="rounded-xl bg-white border border-slate-100 p-4 text-slate-500 text-sm">
+      No orders available.
+    </div>
+  );
+
 
   return (
     <div className="flex min-h-screen bg-slate-50 font-sans text-slate-900">
       {/* Sidebar Navigation */}
       <aside className="w-72 bg-slate-900 text-white p-6 hidden md:block">
         <div className="mb-10 px-2">
-          <h2 className="text-xl font-bold tracking-tight text-indigo-400">Service Management</h2>
+          <h1 className="text-xl font-bold tracking-tight text-indigo-400">Service Management</h1>
         </div>
 
         <nav className="space-y-1">
@@ -153,7 +193,9 @@ export default function ProfessionalProcurementUI() {
               key={r}
               onClick={() => setRole(r)}
               className={`w-full text-left px-4 py-3 rounded-lg text-sm font-medium transition-all ${
-                role === r ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/30' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                role === r
+                  ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/30'
+                  : 'text-slate-400 hover:bg-slate-800 hover:text-white'
               }`}
             >
               {r.replace(/([A-Z])/g, ' $1').toUpperCase()}
@@ -172,9 +214,8 @@ export default function ProfessionalProcurementUI() {
           <div
             className="fixed z-50"
             style={{
-              // align to the center of the viewport (works with/without sidebar)
-              left: "50%",
-              transform: "translateX(-50%)",
+              left: '50%',
+              transform: 'translateX(-50%)',
               top: 16
             }}
           >
@@ -213,7 +254,8 @@ export default function ProfessionalProcurementUI() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
             <p className="text-sm font-medium text-slate-500 uppercase">Active Role</p>
-            <p className="text-2xl font-bold text-slate-800">{role.replace(/([A-Z])/g, ' $1')}</p>
+            <p className="text-2xl font-bold text-slate-800">{role.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/^./, (str) => str.toUpperCase())}</p>
+
           </div>
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
             <p className="text-sm font-medium text-slate-500 uppercase">Total Tasks</p>
@@ -225,7 +267,7 @@ export default function ProfessionalProcurementUI() {
           </div>
         </div>
 
-        {/* Task List Section */}
+        {/* Task List Section (Your original list) */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
           <div className="px-6 py-5 border-b border-slate-50 flex justify-between items-center bg-slate-50/50">
             <h3 className="font-bold text-slate-700 uppercase text-xs tracking-wider">Inbox • Pending Work</h3>
@@ -239,24 +281,65 @@ export default function ProfessionalProcurementUI() {
               <div className="p-10 text-center animate-pulse text-slate-400 italic">Connecting to Flowable...</div>
             ) : tasks.length === 0 ? (
               <div className="p-16 text-center">
-                <p className="text-slate-400 text-lg italic">No active tasks found for your role.</p>
+                <p className="text-slate-400 text-lg italic">No active tasks found for your role</p>
                 <p className="text-slate-300 text-sm">Switch roles or initiate a process to see tasks</p>
               </div>
             ) : (
               tasks.map((t: any) => (
-                <div
-                  key={t.task_id}
-                >
-                  {(role === 'procurement') ? (
-                    <ServiceRequestTasks task={t} handleAction={handleAction} />
-                  ) : (
-                    <ServiceOfferTasks task={t} handleAction={handleAction} />
-                  )}
-                </div>
+              <div key={t.task_id}>
+                {role === 'procurement' ? (
+                  <ProcurementSection task={t} handleAction={handleAction} />
+                ) : role === 'suppliers' ? (
+                  <SuppliersSection task={t} handleAction={handleAction} />
+                ) : role === 'resourcePlanners' ? (
+                  <ResourcePlannersSection task={t} handleAction={handleAction} />
+                ) : (
+                  <ServiceOfferTasks task={t} handleAction={handleAction} />
+                )}
+              </div>
               ))
             )}
           </div>
         </div>
+
+
+        {/* ============================================================
+            NEW UI SECTION (only UI): Supplier Offers / Request Status / Orders
+            Visible for Project Manager like your screenshot
+            ============================================================ */}
+        {role === 'projectManager' && (
+        <ProjectManagerOverview
+          tasks={tasks}
+          showToast={showToast}
+          openOrderModal={openOrderModal}
+        />
+        )}
+
+        {showExtensionModal && selectedOrder && (
+          <ExtensionModal
+              isOpen={showExtensionModal} 
+              onClose={setShowExtensionModal}
+              serviceOrder={selectedOrder}
+          />
+        )}
+
+
+        {showSubResponseModal && selectedOrder && (
+          <SubstitutionResponseModal
+              isOpen={showSubResponseModal} 
+              onClose={setShowSubResponseModal}
+              serviceOrder={selectedOrder}
+          />
+        )}
+
+        {showSubstitutionModal && selectedOrder && (
+          <SubstitutionModal
+              isOpen={showSubstitutionModal} 
+              onClose={setShowSubstitutionModal}
+              serviceOrder={selectedOrder}
+          />
+        )}
+
       </main>
     </div>
   );
