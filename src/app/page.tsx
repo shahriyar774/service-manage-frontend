@@ -15,7 +15,16 @@ import { ServiceOrder } from '@/types/data-type';
 import SubstitutionModal from '@/components/project-manager/substitutionModal';
 import SubstitutionResponseModal from '@/components/project-manager/substitutionResponseModal';
 
+// ✅ NEW: Login component
+import Login from '@/components/Login';
+
+const AUTH_STORAGE_KEY = 'ppui_authed_v1';
+
 export default function ProfessionalProcurementUI() {
+  // ✅ NEW: login gate states
+  const [authChecked, setAuthChecked] = useState(false);
+  const [isAuthed, setIsAuthed] = useState(false);
+
   const [role, setRole] = useState('projectManager');
   const [tasks, setTasks] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -40,6 +49,32 @@ export default function ProfessionalProcurementUI() {
   // API Configuration
   // -----------------------------
   const AUTH = 'Basic ' + btoa('rest-admin:test');
+
+  // ✅ NEW: read saved auth state once on mount
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem(AUTH_STORAGE_KEY);
+      setIsAuthed(saved === '1');
+    } finally {
+      setAuthChecked(true);
+    }
+  }, []);
+
+  // ✅ NEW: login/logout handlers
+  const handleLoginSuccess = () => {
+    window.localStorage.setItem(AUTH_STORAGE_KEY, '1');
+    setIsAuthed(true);
+    showToast('success', 'Login successful.');
+  };
+
+  const handleLogout = () => {
+    window.localStorage.removeItem(AUTH_STORAGE_KEY);
+    setIsAuthed(false);
+    setRole('projectManager');
+    setTasks([]);
+    setStats({ total: 0, unclaimed: 0 });
+    showToast('info', 'Logged out.');
+  };
 
   const loadTasks = useCallback(async () => {
     setLoading(true);
@@ -74,9 +109,11 @@ export default function ProfessionalProcurementUI() {
     }
   }, [role]);
 
+  // ✅ Only load tasks after user is authenticated
   useEffect(() => {
+    if (!isAuthed) return;
     loadTasks();
-  }, [loadTasks]);
+  }, [isAuthed, loadTasks]);
 
   const handleAction = async (taskId: string, action: string, decision: string) => {
     if (action === 'complete' && !decision) {
@@ -133,44 +170,14 @@ export default function ProfessionalProcurementUI() {
 
   const openOrderModal = (order: ServiceOrder, type: string) => {
     setSelectedOrder(order);
-    if (type === 'extension'){
+    if (type === 'extension') {
       setShowExtensionModal(true);
     } else if (type === 'substitution-response') {
-      setShowSubResponseModal(true)
+      setShowSubResponseModal(true);
     } else {
-      setShowSubstitutionModal(true)
+      setShowSubstitutionModal(true);
     }
   };
-
-  // const closeOrderModal = () => {
-  //   setOrderModalOpen(false);
-  //   setSelectedOrder(null);
-  // };
-
-  // This is a placeholder submit to keep UI complete.
-  // You can connect it later to your backend endpoint for service order change requests.
-  // const submitOrderForm = async () => {
-  //   if (!orderForm.reason.trim()) {
-  //     showToast('error', 'Please provide a reason.');
-  //     return;
-  //   }
-
-  //   if (orderType === 'extension') {
-  //     if (!orderForm.newEndDate || !orderForm.additionalManDays || !orderForm.newContractValueEUR) {
-  //       showToast('error', 'Please fill all extension fields.');
-  //       return;
-  //     }
-  //   } else {
-  //     if (!orderForm.replacementSpecialist.trim() || !orderForm.substitutionStartDate) {
-  //       showToast('error', 'Please fill all substitution fields.');
-  //       return;
-  //     }
-  //   }
-
-  //   // Keep it UI-only (no backend dependency)
-  //   showToast('success', `${orderType === 'extension' ? 'Extension' : 'Substitution'} form saved (UI only).`);
-  //   closeOrderModal();
-  // };
 
   const EmptyOrdersState = () => (
     <div className="rounded-xl bg-white border border-slate-100 p-4 text-slate-500 text-sm">
@@ -178,17 +185,30 @@ export default function ProfessionalProcurementUI() {
     </div>
   );
 
+  // ✅ NEW: show login page first (and avoid flicker until authChecked)
+  if (!authChecked) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-500">
+        Loading...
+      </div>
+    );
+  }
+
+  if (!isAuthed) {
+    return <Login onSuccess={handleLoginSuccess} />;
+  }
 
   return (
     <div className="flex min-h-screen bg-slate-50 font-sans text-slate-900">
       {/* Sidebar Navigation */}
       <aside className="w-72 bg-slate-900 text-white p-6 hidden md:block">
-        <div className="mb-10 px-2">
+        <div className="mb-6 px-2">
           <h1 className="text-xl font-bold tracking-tight text-indigo-400">Service Management</h1>
+          
         </div>
 
-        <nav className="space-y-1">
-          {['projectManager', 'procurement', 'suppliers', 'resourcePlanners'].map((r) => (
+        <nav className="space-y-1 mt-8">
+          {['projectManager', 'procurement', 'supplierRepresentative', 'resourcePlanners'].map((r) => (
             <button
               key={r}
               onClick={() => setRole(r)}
@@ -201,8 +221,19 @@ export default function ProfessionalProcurementUI() {
               {r.replace(/([A-Z])/g, ' $1').toUpperCase()}
             </button>
           ))}
+
+          {/* Logout Button */}
+
+            <button
+            onClick={handleLogout}
+            className="mt-4 w-full rounded-xl border border-slate-700 bg-slate-800 px-4 py-2.5 text-sm font-semibold text-slate-100 hover:bg-slate-700 transition-all"
+          >
+            Logout
+          </button>
         </nav>
       </aside>
+
+      
 
       {/* Main Content Area */}
       <main className="flex-1 p-8 overflow-y-auto relative">
@@ -230,11 +261,16 @@ export default function ProfessionalProcurementUI() {
             >
               {toast.message}
             </div>
+            
           </div>
         )}
 
+        
+
         {/* Top Header (will NOT move because we reserved space above) */}
         <header className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
+        
+          
           <div>
             <h1 className="text-3xl font-extrabold tracking-tight">System Dashboard</h1>
             <p className="text-slate-500">Managing procurement flow</p>
@@ -254,8 +290,9 @@ export default function ProfessionalProcurementUI() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
             <p className="text-sm font-medium text-slate-500 uppercase">Active Role</p>
-            <p className="text-2xl font-bold text-slate-800">{role.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/^./, (str) => str.toUpperCase())}</p>
-
+            <p className="text-2xl font-bold text-slate-800">
+              {role.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/^./, (str) => str.toUpperCase())}
+            </p>
           </div>
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
             <p className="text-sm font-medium text-slate-500 uppercase">Total Tasks</p>
@@ -286,60 +323,46 @@ export default function ProfessionalProcurementUI() {
               </div>
             ) : (
               tasks.map((t: any) => (
-              <div key={t.task_id}>
-                {role === 'procurement' ? (
-                  <ProcurementSection task={t} handleAction={handleAction} />
-                ) : role === 'suppliers' ? (
-                  <SuppliersSection task={t} handleAction={handleAction} />
-                ) : role === 'resourcePlanners' ? (
-                  <ResourcePlannersSection task={t} handleAction={handleAction} />
-                ) : (
-                  <ServiceOfferTasks task={t} handleAction={handleAction} />
-                )}
-              </div>
+                <div key={t.task_id}>
+                  {role === 'procurement' ? (
+                    <ProcurementSection task={t} handleAction={handleAction} />
+                  ) : role === 'suppliers' ? (
+                    <SuppliersSection task={t} handleAction={handleAction} />
+                  ) : role === 'resourcePlanners' ? (
+                    <ResourcePlannersSection task={t} handleAction={handleAction} />
+                  ) : (
+                    <ServiceOfferTasks task={t} handleAction={handleAction} />
+                  )}
+                </div>
               ))
             )}
           </div>
         </div>
 
-
-        {/* ============================================================
-            NEW UI SECTION (only UI): Supplier Offers / Request Status / Orders
-            Visible for Project Manager like your screenshot
-            ============================================================ */}
+        {/* NEW UI SECTION: Visible for Project Manager */}
         {role === 'projectManager' && (
-        <ProjectManagerOverview
-          tasks={tasks}
-          showToast={showToast}
-          openOrderModal={openOrderModal}
-        />
+          <ProjectManagerOverview tasks={tasks} showToast={showToast} openOrderModal={openOrderModal} />
         )}
 
         {showExtensionModal && selectedOrder && (
-          <ExtensionModal
-              isOpen={showExtensionModal} 
-              onClose={setShowExtensionModal}
-              serviceOrder={selectedOrder}
-          />
+          <ExtensionModal isOpen={showExtensionModal} onClose={setShowExtensionModal} serviceOrder={selectedOrder} />
         )}
-
 
         {showSubResponseModal && selectedOrder && (
           <SubstitutionResponseModal
-              isOpen={showSubResponseModal} 
-              onClose={setShowSubResponseModal}
-              serviceOrder={selectedOrder}
+            isOpen={showSubResponseModal}
+            onClose={setShowSubResponseModal}
+            serviceOrder={selectedOrder}
           />
         )}
 
         {showSubstitutionModal && selectedOrder && (
           <SubstitutionModal
-              isOpen={showSubstitutionModal} 
-              onClose={setShowSubstitutionModal}
-              serviceOrder={selectedOrder}
+            isOpen={showSubstitutionModal}
+            onClose={setShowSubstitutionModal}
+            serviceOrder={selectedOrder}
           />
         )}
-
       </main>
     </div>
   );

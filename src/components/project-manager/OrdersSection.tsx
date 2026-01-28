@@ -53,7 +53,7 @@ export default function OrdersSection({
         <div className="rounded-2xl border border-slate-100 overflow-hidden">
           <div className="px-5 py-4 bg-slate-50/60 border-b border-slate-100 flex items-center justify-between">
             <div>
-              <h5 className="text-sm font-bold text-slate-800 uppercase tracking-wider">
+              <h5 className="text-lg font-bold text-slate-800 tracking-wider">
                 Orders Overview
               </h5>
               <p className="text-xs text-slate-500 mt-1">
