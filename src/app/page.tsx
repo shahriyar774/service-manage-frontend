@@ -208,7 +208,7 @@ export default function ProfessionalProcurementUI() {
         </div>
 
         <nav className="space-y-1 mt-8">
-          {['projectManager', 'procurement', 'supplierRepresentative', 'resourcePlanners'].map((r) => (
+          {['projectManager', 'procurement', 'suppliers', 'resourcePlanners'].map((r) => (
             <button
               key={r}
               onClick={() => setRole(r)}
